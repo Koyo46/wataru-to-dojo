@@ -7,6 +7,7 @@ type GameMode = 'pvp' | 'vsAPI';
 
 export default function Home() {
   const [gameId, setGameId] = useState<string | null>(null);
+  const [boardSize, setBoardSize] = useState<9 | 18>(18);
   const [currentPlayer, setCurrentPlayer] = useState<1 | -1>(1);
   const [board, setBoard] = useState<number[][][]>(
     Array.from({ length: 18 }, () => 
@@ -47,14 +48,15 @@ export default function Home() {
     }
   }, [apiConnected]);
 
-  const initializeGame = async () => {
+  const initializeGame = async (size?: number) => {
     setIsLoading(true);
     setErrorMessage(null);
+    const gameSize = size || boardSize;
     try {
-      const response = await apiClient.createNewGame(18);
+      const response = await apiClient.createNewGame(gameSize);
       setGameId(response.game_id);
       updateGameState(response.state);
-      console.log("🎮 新しいゲームを作成:", response.game_id);
+      console.log("🎮 新しいゲームを作成:", response.game_id, `(${gameSize}x${gameSize})`);
     } catch (error) {
       console.error("ゲーム作成エラー:", error);
       setErrorMessage("ゲームの作成に失敗しました");
@@ -274,6 +276,14 @@ export default function Home() {
     await handleReset();
   };
 
+  const handleBoardSizeChange = async (size: 9 | 18) => {
+    setBoardSize(size);
+    setGameId(null);
+    setCurrentPath([]);
+    setIsGameOver(false);
+    await initializeGame(size);
+  };
+
   return (
     <div className="flex min-h-screen bg-zinc-50 font-sans dark:bg-black">
       {/* 左サイド - 水色プレイヤー */}
@@ -337,6 +347,33 @@ export default function Home() {
         )}
         
         {/* ゲームモード選択 */}
+        {/* 盤面サイズ選択 */}
+        <div className="mb-4 flex gap-2">
+          <button
+            onClick={() => handleBoardSizeChange(9)}
+            disabled={isLoading}
+            className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+              boardSize === 9 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            } disabled:opacity-50`}
+          >
+            9×9
+          </button>
+          <button
+            onClick={() => handleBoardSizeChange(18)}
+            disabled={isLoading}
+            className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+              boardSize === 18 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            } disabled:opacity-50`}
+          >
+            18×18
+          </button>
+        </div>
+
+        {/* ゲームモード選択 */}
         <div className="mb-4 flex gap-2">
           <button
             onClick={() => handleModeChange('pvp')}
@@ -393,12 +430,16 @@ export default function Home() {
           )}
         </div>
 
-        {/* 18x18の盤面 */}
-        <div className="grid grid-cols-18 gap-0 border-t-4 border-b-4 border-l-4 border-r-4 border-t-cyan-400 border-b-cyan-400 border-l-pink-400 border-r-pink-400">
-          {Array.from({ length: 18 * 18 }).map((_, index) => {
-            const row = Math.floor(index / 18);
-            const col = index % 18;
-            const layers = board[row][col];
+        {/* 盤面 */}
+        <div 
+          className={`grid gap-0 border-t-4 border-b-4 border-l-4 border-r-4 border-t-cyan-400 border-b-cyan-400 border-l-pink-400 border-r-pink-400 ${
+            boardSize === 9 ? 'grid-cols-9' : 'grid-cols-18'
+          }`}
+        >
+          {Array.from({ length: boardSize * boardSize }).map((_, index) => {
+            const row = Math.floor(index / boardSize);
+            const col = index % boardSize;
+            const layers = board[row]?.[col] || [0, 0];
             const layer1 = layers[0];
             const layer2 = layers[1];
             
@@ -409,11 +450,13 @@ export default function Home() {
               bgColor = layer1 === 1 ? "bg-cyan-400" : "bg-pink-400";
             }
             
+            const cellSize = boardSize === 9 ? 'w-10 h-10' : 'w-6 h-6';
+            
             return (
               <div
                 key={index}
                 onClick={() => handleCellClick(row, col)}
-                className={`w-6 h-6 ${bgColor} border border-gray-600 cursor-pointer hover:opacity-80 transition-all`}
+                className={`${cellSize} ${bgColor} border border-gray-600 cursor-pointer hover:opacity-80 transition-all`}
               ></div>
             );
           })}
