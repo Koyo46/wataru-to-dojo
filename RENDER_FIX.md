@@ -49,12 +49,15 @@ services:
     name: wataru-to-dojo-api
     runtime: python
     plan: free
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
 ```
+
+**重要**: `rootDir: backend` を指定することで、Renderは `backend` ディレクトリをルートとして認識します。
 
 #### `backend/runtime.txt`
 ```txt
@@ -111,13 +114,14 @@ app.add_middleware(
 2. 以下の設定を入力：
    - **Name**: `wataru-to-dojo-api`
    - **Runtime**: `Python 3`
+   - **Root Directory**: `backend` ⚠️ **重要！**
    - **Build Command**: 
      ```bash
-     pip install -r backend/requirements.txt
+     pip install -r requirements.txt
      ```
    - **Start Command**: 
      ```bash
-     cd backend && uvicorn api.main:app --host 0.0.0.0 --port $PORT
+     uvicorn api.main:app --host 0.0.0.0 --port $PORT
      ```
 
 3. 環境変数を設定（オプション）：

@@ -36,13 +36,14 @@
 2. **設定を入力**
    - **Name**: `wataru-to-dojo-api`
    - **Runtime**: `Python 3`
+   - **Root Directory**: `backend` ⚠️ **重要！これを設定しないとモジュールが見つかりません**
    - **Build Command**:
      ```bash
-     pip install -r backend/requirements.txt
+     pip install -r requirements.txt
      ```
    - **Start Command**:
      ```bash
-     cd backend && uvicorn api.main:app --host 0.0.0.0 --port $PORT
+     uvicorn api.main:app --host 0.0.0.0 --port $PORT
      ```
 
 3. **環境変数を設定**
