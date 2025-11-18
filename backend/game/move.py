@@ -187,8 +187,15 @@ class MoveValidator:
             if current_player_blocks.get("size5", 0) <= 0:
                 return False, "No 5-size blocks available"
         
-        # 盤面の状態チェック
-        for i, pos in enumerate(move.path):
+        # パスをソート（横一列なら列順、縦一列なら行順）
+        all_same_row = all(pos.row == move.path[0].row for pos in move.path)
+        if all_same_row:
+            sorted_path = sorted(move.path, key=lambda p: p.col)
+        else:
+            sorted_path = sorted(move.path, key=lambda p: p.row)
+        
+        # 盤面の状態チェック（ソート済みのパスを使用）
+        for i, pos in enumerate(sorted_path):
             if pos.row < 0 or pos.row >= len(board):
                 return False, f"Position out of bounds: row={pos.row}"
             if pos.col < 0 or pos.col >= len(board[0]):
@@ -212,7 +219,7 @@ class MoveValidator:
                         return False, f"Layer 1 must have player color at start position ({pos.row},{pos.col})"
             else:
                 # 2マス目以降
-                first_layer = move.path[0].layer
+                first_layer = sorted_path[0].layer
                 
                 if first_layer == 0:
                     # レイヤー1モード
