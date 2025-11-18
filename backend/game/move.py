@@ -124,19 +124,24 @@ class Move:
         if not (all_same_row or all_same_col):
             return False
         
-        # 連続しているかチェック
-        for i in range(len(self.path) - 1):
-            curr = self.path[i]
-            next_pos = self.path[i + 1]
-            
-            # 隣接しているか
-            is_adjacent = (
-                (abs(curr.row - next_pos.row) == 1 and curr.col == next_pos.col) or
-                (abs(curr.col - next_pos.col) == 1 and curr.row == next_pos.row)
-            )
-            
-            if not is_adjacent:
-                return False
+        # 重複チェック
+        positions_set = set((pos.row, pos.col, pos.layer) for pos in self.path)
+        if len(positions_set) != len(self.path):
+            return False
+        
+        # ソートして連続性をチェック
+        if all_same_row:
+            # 横一列の場合、列番号でソート
+            sorted_path = sorted(self.path, key=lambda p: p.col)
+            for i in range(len(sorted_path) - 1):
+                if sorted_path[i + 1].col - sorted_path[i].col != 1:
+                    return False
+        else:
+            # 縦一列の場合、行番号でソート
+            sorted_path = sorted(self.path, key=lambda p: p.row)
+            for i in range(len(sorted_path) - 1):
+                if sorted_path[i + 1].row - sorted_path[i].row != 1:
+                    return False
         
         return True
     
