@@ -31,9 +31,17 @@ app = FastAPI(
 )
 
 # CORS設定（フロントエンドからのアクセスを許可）
+import os
+
+# 環境変数から許可するオリジンを取得
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:3001"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=allowed_origins + ["*"],  # 開発用に全許可（本番では制限推奨）
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

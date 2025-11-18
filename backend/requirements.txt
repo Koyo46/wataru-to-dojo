@@ -1,15 +1,11 @@
 # Web Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
+fastapi==0.115.0
+uvicorn==0.32.0
+pydantic==2.9.0
 
 # CORS
-python-multipart==0.0.6
-
-# Deep Learning (Alpha Zero用)
-# torch==2.1.0
-# numpy==1.24.3
+python-multipart==0.0.9
 
 # Utilities
-python-dotenv==1.0.0
+python-dotenv==1.0.1
 
