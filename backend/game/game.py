@@ -5,7 +5,6 @@
 """
 
 from typing import List, Dict, Literal, Optional, Tuple
-import copy
 import json
 from datetime import datetime
 
@@ -146,6 +145,7 @@ class WataruToGame:
         moves: List[Move] = []
         player = self.current_player
         size = self.board.size
+        timestamp = datetime.now().timestamp()  # 1回だけ生成して使い回す
         
         # 各マスを起点として探索
         for row in range(size):
@@ -225,8 +225,8 @@ class WataruToGame:
                                 try:
                                     move = Move(
                                         player=player,
-                                        path=copy.deepcopy(path),
-                                        timestamp=datetime.now().timestamp()
+                                        path=path[:],  # シャローコピーで十分
+                                        timestamp=timestamp  # 使い回し
                                     )
                                     moves.append(move)
                                 except ValueError:

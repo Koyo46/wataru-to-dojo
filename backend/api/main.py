@@ -21,6 +21,7 @@ sys.path.insert(0, str(backend_path))
 from game.game import WataruToGame
 from game.move import Move, Position
 from game.board import Board
+from ai.mcts import create_mcts_engine
 
 
 # FastAPIアプリケーション
@@ -265,7 +266,7 @@ async def get_legal_moves(game_id: str):
 @app.post("/api/ai/move", response_model=AIMovesResponse)
 async def get_ai_move(request: AIMovesRequest):
     """
-    AIの手を取得（ランダム選択）
+    MCTS AIの手を取得
     
     Args:
         request: AI手取得リクエスト
@@ -285,24 +286,34 @@ async def get_ai_move(request: AIMovesRequest):
             detail=f"Not player {request.player}'s turn"
         )
     
-    # 合法手を取得
-    legal_moves = game.get_legal_moves()
+    # ゲーム終了チェック
+    if game.winner is not None:
+        raise HTTPException(status_code=400, detail="Game is already finished")
     
-    if len(legal_moves) == 0:
+    # MCTSエンジンを作成（5秒制限）
+    print(f"[MCTS AI] 思考開始（プレイヤー: {request.player}）")
+    mcts = create_mcts_engine(
+        time_limit=5.0,  # 5秒で探索
+        exploration_weight=1.41,
+        verbose=True  # サーバーログに統計情報を出力
+    )
+    
+    # 最良の手を探索
+    best_move = mcts.search(game)
+    
+    if best_move is None:
         return AIMovesResponse(
             game_id=request.game_id,
             move=None,
             message="No legal moves available"
         )
     
-    # ランダムに手を選択（簡易AI）
-    import random
-    selected_move = random.choice(legal_moves)
+    print(f"[MCTS AI] 選択完了: {best_move}")
     
     return AIMovesResponse(
         game_id=request.game_id,
-        move=selected_move.to_dict(),
-        message="AI move selected"
+        move=best_move.to_dict(),
+        message=f"MCTS AI move (勝率: {mcts.stats.best_move_win_rate*100:.1f}%)"
     )
 
 
