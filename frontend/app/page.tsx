@@ -413,7 +413,8 @@ export default function Home() {
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               } disabled:opacity-50`}
             >
-              簡単 (Pure MCTS)
+              簡単
+              <br /> (Pure MCTS)
             </button>
             <button
               onClick={() => setAiDifficulty('hard')}
@@ -424,7 +425,8 @@ export default function Home() {
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               } disabled:opacity-50`}
             >
-              難しい (Tactical MCTS)
+              難しい
+              <br /> (Tactical Heuristics MCTS)
             </button>
           </div>
         )}

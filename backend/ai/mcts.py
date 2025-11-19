@@ -290,20 +290,25 @@ class MCTS:
         
         node.backpropagate(node_result)
     
-    def _find_winning_move(self, game_state: WataruToGame, legal_moves: List[Move]) -> Optional[Move]:
+    def _find_winning_move(self, game_state: WataruToGame, legal_moves: List[Move], max_check: int = 30) -> Optional[Move]:
         """
         即座に勝てる手を探す
+        
+        最適化: 最初のN手だけチェック
         
         Args:
             game_state: 現在のゲーム状態
             legal_moves: 合法手のリスト
+            max_check: チェックする最大手数（デフォルト: 30）
         
         Returns:
             勝利手があればその手、なければNone
         """
         current_player = game_state.current_player
+        check_count = min(max_check, len(legal_moves))
         
-        for move in legal_moves:
+        for i in range(check_count):
+            move = legal_moves[i]
             # 手を試す
             test_game = game_state.clone()
             test_game.apply_move(move)
@@ -426,9 +431,47 @@ class MCTS:
         
         return game_state.winner
     
+    def _has_immediate_threat(self, game_state: WataruToGame, max_check: int = 10) -> bool:
+        """
+        即座の脅威（王手）があるかを高速チェック
+        
+        最適化: 最初のN手だけチェックして早期リターン
+        
+        Args:
+            game_state: 現在のゲーム状態
+            max_check: チェックする最大手数（デフォルト: 50）
+        
+        Returns:
+            相手に勝利手がある場合True
+        """
+        current_player = game_state.current_player
+        opponent = -current_player
+        
+        # 相手のターンをシミュレート
+        test_game = game_state.clone()
+        test_game.current_player = opponent
+        opponent_moves = test_game.get_legal_moves()
+        
+        # 最初のN手だけチェック（高速化）
+        check_count = min(max_check, len(opponent_moves))
+        
+        for i in range(check_count):
+            opp_move = opponent_moves[i]
+            test_game2 = test_game.clone()
+            test_game2.apply_move(opp_move)
+            if test_game2.winner == opponent:
+                return True
+        
+        return False
+    
     def _simulate_tactical_playout(self, game_state: WataruToGame) -> int:
         """
         Tactical MCTSモード: 戦術的ヒューリスティック付きプレイアウト
+        
+        最適化版:
+        - 勝利手のチェックのみ実行（超高速）
+        - 防御チェックは重いのでプレイアウト中はスキップ
+        - 代わりにルートノードでの防御判定に集中
         
         Args:
             game_state: シミュレーション開始状態
@@ -445,21 +488,14 @@ class MCTS:
             if not legal_moves:
                 break
             
-            # 1. 即座に勝てる手があれば必ず打つ
+            # 1. 即座に勝てる手があれば必ず打つ（高速チェック）
             winning_move = self._find_winning_move(game_state, legal_moves)
             if winning_move:
                 game_state.apply_move(winning_move)
                 move_count += 1
                 continue
             
-            # 2. 相手の勝利手を防ぐ手があれば優先的に打つ
-            blocking_move = self._find_blocking_move(game_state, legal_moves)
-            if blocking_move:
-                game_state.apply_move(blocking_move)
-                move_count += 1
-                continue
-            
-            # 3. どちらでもなければランダムに選択
+            # 2. ランダムに選択（防御チェックはスキップして高速化）
             move = random.choice(legal_moves)
             game_state.apply_move(move)
             move_count += 1
