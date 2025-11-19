@@ -140,15 +140,21 @@ class WataruToGame:
         """盤面をテンソル形式で取得（Alpha Zero用）"""
         return self.board.to_tensor()
     
-    def get_legal_moves(self) -> List[Move]:
+    def get_legal_moves(self, filter_opening: bool = False) -> List[Move]:
         """
         現在のプレイヤーの合法手をすべて取得（キャッシング対応）
+        
+        Args:
+            filter_opening: 初手フィルタリングを有効にするか
+                           Trueの場合、盤面が空の時にプレイヤーに有利な方向のみに絞る
+                           （水色=1なら縦方向、ピンク=-1なら横方向のみ）
         
         Returns:
             合法手のリスト
         """
         # キャッシュが有効ならそれを返す
-        if self._cache_valid and self._legal_moves_cache is not None:
+        # ただし、filter_openingフラグが異なる場合はキャッシュを使わない
+        if self._cache_valid and self._legal_moves_cache is not None and not filter_opening:
             return self._legal_moves_cache
         
         if self.winner is not None:
@@ -263,9 +269,17 @@ class WataruToGame:
                                     # 無効な手はスキップ
                                     continue
         
-        # キャッシュに保存
-        self._legal_moves_cache = moves
-        self._cache_valid = True
+        # 初手フィルタリングが有効な場合、盤面が空なら方向を絞る
+        if filter_opening and len(self.move_history) == 0:
+            # 水色（プレイヤー1）は縦方向（vertical）のみ
+            # ピンク（プレイヤー-1）は横方向（horizontal）のみ
+            preferred_direction = "vertical" if player == 1 else "horizontal"
+            moves = [m for m in moves if m.direction == preferred_direction]
+        
+        # キャッシュに保存（filter_openingがFalseの場合のみ）
+        if not filter_opening:
+            self._legal_moves_cache = moves
+            self._cache_valid = True
         
         return moves
     

@@ -96,20 +96,22 @@ class MCTSNode:
         self, 
         game_state: WataruToGame, 
         parent: Optional['MCTSNode'] = None,
-        move: Optional[Move] = None
+        move: Optional[Move] = None,
+        filter_opening: bool = False
     ):
         """
         Args:
             game_state: このノードのゲーム状態
             parent: 親ノード
             move: 親からこのノードへの手
+            filter_opening: 初手フィルタリングを有効にするか
         """
         self.game_state = game_state
         self.parent = parent
         self.move = move  # 親からこのノードへの手
         
         self.children: List['MCTSNode'] = []
-        self.untried_moves: List[Move] = game_state.get_legal_moves()
+        self.untried_moves: List[Move] = game_state.get_legal_moves(filter_opening=filter_opening)
         
         # 統計
         self.visits = 0
@@ -197,7 +199,8 @@ class MCTS:
         verbose: bool = False,
         use_tactical_heuristics: bool = True,
         debug_playout: bool = False,
-        debug_playout_count: int = 1
+        debug_playout_count: int = 1,
+        filter_opening: bool = True
     ):
         """
         Args:
@@ -210,6 +213,9 @@ class MCTS:
                 False: Pure MCTS（完全ランダムプレイアウト）
             debug_playout: プレイアウトのデバッグ情報を表示するか
             debug_playout_count: デバッグ表示するプレイアウトの回数
+            filter_opening: 初手フィルタリングを有効にするか
+                True: 盤面が空の場合、プレイヤーに有利な方向のみ探索
+                      （水色=縦、ピンク=横）
         """
         self.exploration_weight = exploration_weight
         self.time_limit = time_limit
@@ -218,6 +224,7 @@ class MCTS:
         self.use_tactical_heuristics = use_tactical_heuristics
         self.debug_playout = debug_playout
         self.debug_playout_count = debug_playout_count
+        self.filter_opening = filter_opening
         self.stats = MCTSStats()
         self._simulation_count = 0  # 現在のシミュレーション回数
     
@@ -235,8 +242,8 @@ class MCTS:
         self.stats = MCTSStats()
         self._simulation_count = 0  # リセット
         
-        # ルートノードを作成
-        root = MCTSNode(game_state.clone())
+        # ルートノードを作成（初手フィルタリングを適用）
+        root = MCTSNode(game_state.clone(), filter_opening=self.filter_opening)
         
         # 合法手がない場合
         if not root.untried_moves and not root.children:
@@ -792,7 +799,8 @@ def create_mcts_engine(
     verbose: bool = True,
     use_tactical_heuristics: bool = True,
     debug_playout: bool = False,
-    debug_playout_count: int = 1
+    debug_playout_count: int = 1,
+    filter_opening: bool = True
 ) -> MCTS:
     """
     MCTSエンジンを作成するヘルパー関数
@@ -807,6 +815,8 @@ def create_mcts_engine(
             False: Pure MCTS（弱い、速い）
         debug_playout: プレイアウトのデバッグ情報を表示するか
         debug_playout_count: デバッグ表示するプレイアウトの回数
+        filter_opening: 初手フィルタリングを有効にするか
+            True: 盤面が空の場合、プレイヤーに有利な方向のみ探索
     
     Returns:
         MCTSエンジンインスタンス
@@ -818,5 +828,6 @@ def create_mcts_engine(
         verbose=verbose,
         use_tactical_heuristics=use_tactical_heuristics,
         debug_playout=debug_playout,
-        debug_playout_count=debug_playout_count
+        debug_playout_count=debug_playout_count,
+        filter_opening=filter_opening
     )
