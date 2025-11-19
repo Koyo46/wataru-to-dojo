@@ -20,6 +20,7 @@ export default function Home() {
     [-1]: { size4: 1, size5: 1 },
   });
   const [gameMode, setGameMode] = useState<GameMode>('pvp');
+  const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'hard'>('hard');
   const [isAIThinking, setIsAIThinking] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +90,7 @@ export default function Home() {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
-      const aiResponse = await apiClient.getAIMove(gameId, -1);
+      const aiResponse = await apiClient.getAIMove(gameId, -1, aiDifficulty);
       
       if (aiResponse.move) {
         const moveResponse = await apiClient.applyMove(gameId, aiResponse.move);
@@ -398,6 +399,35 @@ export default function Home() {
             vsバックエンドAI
           </button>
         </div>
+
+        {/* AI難易度選択 */}
+        {gameMode === 'vsAPI' && (
+          <div className="mb-4 flex gap-2 items-center">
+            <span className="text-sm font-semibold text-gray-700">AI難易度:</span>
+            <button
+              onClick={() => setAiDifficulty('easy')}
+              disabled={isLoading || isAIThinking}
+              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                aiDifficulty === 'easy' 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              } disabled:opacity-50`}
+            >
+              簡単 (Pure MCTS)
+            </button>
+            <button
+              onClick={() => setAiDifficulty('hard')}
+              disabled={isLoading || isAIThinking}
+              className={`px-3 py-1.5 rounded text-sm font-semibold transition ${
+                aiDifficulty === 'hard' 
+                  ? 'bg-red-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              } disabled:opacity-50`}
+            >
+              難しい (Tactical MCTS)
+            </button>
+          </div>
+        )}
 
         {isAIThinking && (
           <div className="mb-2 text-lg font-bold text-purple-600 animate-pulse">

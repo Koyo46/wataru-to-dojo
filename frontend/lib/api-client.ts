@@ -160,7 +160,7 @@ export class WataruToAPIClient {
   /**
    * AIの手を取得
    */
-  async getAIMove(gameId: string, player: 1 | -1): Promise<AIMovesResponse> {
+  async getAIMove(gameId: string, player: 1 | -1, difficulty: 'easy' | 'hard' = 'hard'): Promise<AIMovesResponse> {
     const response = await fetch(`${this.baseUrl}/api/ai/move`, {
       method: 'POST',
       headers: {
@@ -169,6 +169,7 @@ export class WataruToAPIClient {
       body: JSON.stringify({
         game_id: gameId,
         player: player,
+        difficulty: difficulty,
       }),
     });
 

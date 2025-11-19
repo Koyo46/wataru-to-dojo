@@ -135,7 +135,8 @@ class MCTS:
         exploration_weight: float = 1.41,
         time_limit: float = 15.0,
         max_simulations: Optional[int] = None,
-        verbose: bool = False
+        verbose: bool = False,
+        use_tactical_heuristics: bool = True
     ):
         """
         Args:
@@ -143,11 +144,15 @@ class MCTS:
             time_limit: 探索時間制限（秒）
             max_simulations: 最大シミュレーション回数（Noneなら時間制限のみ）
             verbose: デバッグ情報を出力するか
+            use_tactical_heuristics: 戦術的ヒューリスティックを使用するか
+                True: Tactical MCTS（勝利手検出・防御あり）
+                False: Pure MCTS（完全ランダムプレイアウト）
         """
         self.exploration_weight = exploration_weight
         self.time_limit = time_limit
         self.max_simulations = max_simulations
         self.verbose = verbose
+        self.use_tactical_heuristics = use_tactical_heuristics
         self.stats = MCTSStats()
     
     def search(self, game_state: WataruToGame) -> Optional[Move]:
@@ -169,6 +174,59 @@ class MCTS:
         # 合法手がない場合
         if not root.untried_moves and not root.children:
             return None
+        
+        # Tactical MCTSモードの場合、王手への即座の対応
+        if self.use_tactical_heuristics:
+            current_player = game_state.current_player
+            opponent = -current_player
+            test_game = game_state.clone()
+            test_game.current_player = opponent
+            opponent_moves = test_game.get_legal_moves()
+            
+            # 相手の勝利手をチェック
+            has_opponent_winning_move = False
+            opponent_winning_moves = []
+            for opp_move in opponent_moves:
+                test_game2 = test_game.clone()
+                test_game2.apply_move(opp_move)
+                if test_game2.winner == opponent:
+                    has_opponent_winning_move = True
+                    opponent_winning_moves.append(opp_move)
+            
+            # 王手がある場合、即座に防御手を探して返す
+            if has_opponent_winning_move:
+                opponent_name = "水色" if opponent == 1 else "ピンク"
+                current_name = "水色" if current_player == 1 else "ピンク"
+                print(f"\n{'='*60}")
+                print(f"[緊急王手] {opponent_name}が{current_name}に王手！")
+                print(f"[危険度] 相手の勝利手: {len(opponent_winning_moves)}通り")
+                print(f"[即応] 防御手を優先的に選択します")
+                print(f"{'='*60}\n")
+                
+                # 防御手を探す（verboseはFalse、すでに上で出力済み）
+                legal_moves = game_state.get_legal_moves()
+                blocking_move = self._find_blocking_move(game_state, legal_moves, verbose=False)
+                
+                if blocking_move:
+                    print(f"[防御選択] {blocking_move}")
+                    print(f"{'='*60}\n")
+                    
+                    # 統計情報を簡易的に設定
+                    self.stats.simulations_run = 0
+                    self.stats.time_elapsed = time.time() - start_time
+                    self.stats.nodes_explored = 1
+                    self.stats.best_move_visits = 1
+                    self.stats.best_move_win_rate = 1.0
+                    
+                    if self.verbose:
+                        print("=" * 60)
+                        print("防御手を即座に選択（探索スキップ）")
+                        print("=" * 60 + "\n")
+                    
+                    return blocking_move
+                else:
+                    print(f"[詰み確定] 防御不可能、最善手を探索します")
+                    print(f"{'='*60}\n")
         
         # シミュレーション回数をカウント
         simulation_count = 0
@@ -232,9 +290,115 @@ class MCTS:
         
         node.backpropagate(node_result)
     
-    def _simulate_random_playout(self, game_state: WataruToGame) -> int:
+    def _find_winning_move(self, game_state: WataruToGame, legal_moves: List[Move]) -> Optional[Move]:
         """
-        ランダムプレイアウトを実行
+        即座に勝てる手を探す
+        
+        Args:
+            game_state: 現在のゲーム状態
+            legal_moves: 合法手のリスト
+        
+        Returns:
+            勝利手があればその手、なければNone
+        """
+        current_player = game_state.current_player
+        
+        for move in legal_moves:
+            # 手を試す
+            test_game = game_state.clone()
+            test_game.apply_move(move)
+            
+            # 勝利判定
+            if test_game.winner == current_player:
+                return move
+        
+        return None
+    
+    def _find_blocking_move(self, game_state: WataruToGame, legal_moves: List[Move], verbose: bool = False) -> Optional[Move]:
+        """
+        相手の勝利手を防ぐ手を探す（効率的版）
+        
+        戦略:
+        1. 相手に即座の勝利手があるかチェック
+        2. ある場合、自分の各手を試して相手の勝利手を防げるかチェック
+        3. 防げる手があればそれを返す
+        
+        Args:
+            game_state: 現在のゲーム状態
+            legal_moves: 合法手のリスト
+            verbose: デバッグ情報を出力するか（デフォルト: False）
+        
+        Returns:
+            防御手があればその手、なければNone
+        """
+        current_player = game_state.current_player
+        opponent = -current_player
+        
+        # まず、現在の状態で相手に勝利手があるかチェック
+        test_game = game_state.clone()
+        test_game.current_player = opponent
+        
+        opponent_moves = test_game.get_legal_moves()
+        has_opponent_winning_move = False
+        winning_moves_list = []
+        
+        for opp_move in opponent_moves:
+            test_game2 = test_game.clone()
+            test_game2.apply_move(opp_move)
+            
+            if test_game2.winner == opponent:
+                has_opponent_winning_move = True
+                winning_moves_list.append(opp_move)
+        
+        # 相手に勝利手がない場合は防御不要
+        if not has_opponent_winning_move:
+            return None
+        
+        # 王手を検知！コンソールに表示（verboseモードの場合のみ）
+        if verbose:
+            opponent_name = "水色" if opponent == 1 else "ピンク"
+            current_name = "水色" if current_player == 1 else "ピンク"
+            print(f"\n{'='*60}")
+            print(f"[王手検知] {opponent_name}が王手をかけています！")
+            print(f"[ピンチ] {current_name}は防御が必要です！")
+            print(f"[危険] 相手の勝利手: {len(winning_moves_list)}通り")
+            print(f"{'='*60}\n")
+        
+        # 相手に勝利手がある場合、それを防ぐ手を探す
+        # 各自分の手を試して、その後相手が勝てなくなるかチェック
+        for my_move in legal_moves:
+            test_game = game_state.clone()
+            test_game.apply_move(my_move)
+            
+            # この手を打った後、相手に勝利手があるかチェック
+            opponent_moves_after = test_game.get_legal_moves()
+            opponent_can_still_win = False
+            
+            for opp_move in opponent_moves_after:
+                test_game2 = test_game.clone()
+                test_game2.apply_move(opp_move)
+                
+                if test_game2.winner == opponent:
+                    opponent_can_still_win = True
+                    break
+            
+            # この手で相手の勝利を防げる
+            if not opponent_can_still_win:
+                if verbose:
+                    print(f"[防御成功] 防御手を発見: {my_move}")
+                    print(f"{'='*60}\n")
+                return my_move
+        
+        # すべての手で相手が勝ってしまう場合はNone
+        # （詰んでいる状態）
+        if verbose:
+            print(f"[詰み] 防御不可能！すべての手で相手が勝利します")
+            print(f"{'='*60}\n")
+        return None
+    
+    def _simulate_pure_random_playout(self, game_state: WataruToGame) -> int:
+        """
+        Pure MCTSモード: 完全ランダムプレイアウト
         
         Args:
             game_state: シミュレーション開始状態
@@ -251,7 +415,7 @@ class MCTS:
             if not legal_moves:
                 break
             
-            # ランダムに手を選択
+            # 完全ランダムに選択
             move = random.choice(legal_moves)
             game_state.apply_move(move)
             move_count += 1
@@ -261,6 +425,65 @@ class MCTS:
             return 0  # 引き分け（タイムアウト）
         
         return game_state.winner
+    
+    def _simulate_tactical_playout(self, game_state: WataruToGame) -> int:
+        """
+        Tactical MCTSモード: 戦術的ヒューリスティック付きプレイアウト
+        
+        Args:
+            game_state: シミュレーション開始状態
+        
+        Returns:
+            勝者（1, -1, 0=引き分け）
+        """
+        max_moves = 100  # 無限ループ防止
+        move_count = 0
+        
+        while game_state.winner is None and move_count < max_moves:
+            legal_moves = game_state.get_legal_moves()
+            
+            if not legal_moves:
+                break
+            
+            # 1. 即座に勝てる手があれば必ず打つ
+            winning_move = self._find_winning_move(game_state, legal_moves)
+            if winning_move:
+                game_state.apply_move(winning_move)
+                move_count += 1
+                continue
+            
+            # 2. 相手の勝利手を防ぐ手があれば優先的に打つ
+            blocking_move = self._find_blocking_move(game_state, legal_moves)
+            if blocking_move:
+                game_state.apply_move(blocking_move)
+                move_count += 1
+                continue
+            
+            # 3. どちらでもなければランダムに選択
+            move = random.choice(legal_moves)
+            game_state.apply_move(move)
+            move_count += 1
+        
+        # 勝者を返す
+        if game_state.winner is None:
+            return 0  # 引き分け（タイムアウト）
+        
+        return game_state.winner
+    
+    def _simulate_random_playout(self, game_state: WataruToGame) -> int:
+        """
+        ランダムプレイアウトを実行（モードに応じて切り替え）
+        
+        Args:
+            game_state: シミュレーション開始状態
+        
+        Returns:
+            勝者（1, -1, 0=引き分け）
+        """
+        if self.use_tactical_heuristics:
+            return self._simulate_tactical_playout(game_state)
+        else:
+            return self._simulate_pure_random_playout(game_state)
     
     def _count_nodes(self, node: MCTSNode) -> int:
         """探索木のノード数をカウント"""
@@ -295,7 +518,8 @@ class MCTS:
 def create_mcts_engine(
     time_limit: float = 10.0,
     exploration_weight: float = 1.41,
-    verbose: bool = True
+    verbose: bool = True,
+    use_tactical_heuristics: bool = True
 ) -> MCTS:
     """
     MCTSエンジンを作成するヘルパー関数
@@ -304,6 +528,9 @@ def create_mcts_engine(
         time_limit: 探索時間制限（秒）
         exploration_weight: 探索パラメータ
         verbose: デバッグ情報を出力するか
+        use_tactical_heuristics: 戦術的ヒューリスティックを使用するか
+            True: Tactical MCTS（強い、遅い）
+            False: Pure MCTS（弱い、速い）
     
     Returns:
         MCTSエンジンインスタンス
@@ -311,5 +538,6 @@ def create_mcts_engine(
     return MCTS(
         exploration_weight=exploration_weight,
         time_limit=time_limit,
-        verbose=verbose
+        verbose=verbose,
+        use_tactical_heuristics=use_tactical_heuristics
     )

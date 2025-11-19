@@ -111,6 +111,7 @@ class AIMovesRequest(BaseModel):
     """AI手取得リクエスト"""
     game_id: str
     player: Literal[1, -1]
+    difficulty: Literal["easy", "hard"] = "hard"  # easy=Pure MCTS, hard=Tactical MCTS
 
 
 class AIMovesResponse(BaseModel):
@@ -290,12 +291,17 @@ async def get_ai_move(request: AIMovesRequest):
     if game.winner is not None:
         raise HTTPException(status_code=400, detail="Game is already finished")
     
-    # MCTSエンジンを作成（10秒制限）
-    print(f"[MCTS AI] 思考開始（プレイヤー: {request.player}）")
+    # 難易度に応じてMCTSエンジンを作成
+    use_tactical = request.difficulty == "hard"
+    ai_mode = "Tactical MCTS" if use_tactical else "Pure MCTS"
+    
+    print(f"[MCTS AI] 思考開始（プレイヤー: {request.player}, モード: {ai_mode}）")
+    
     mcts = create_mcts_engine(
-        time_limit=10.0,  # 10秒で探索（9x9盤面で約640回のシミュレーション）
+        time_limit=10.0,  # 10秒で探索
         exploration_weight=1.41,
-        verbose=True  # サーバーログに統計情報を出力
+        verbose=True,  # サーバーログに統計情報を出力
+        use_tactical_heuristics=use_tactical
     )
     
     # 最良の手を探索
@@ -310,10 +316,13 @@ async def get_ai_move(request: AIMovesRequest):
     
     print(f"[MCTS AI] 選択完了: {best_move}")
     
+    # メッセージに難易度を含める
+    difficulty_label = "難易度: 難しい" if use_tactical else "難易度: 簡単"
+    
     return AIMovesResponse(
         game_id=request.game_id,
         move=best_move.to_dict(),
-        message=f"MCTS AI move (勝率: {mcts.stats.best_move_win_rate*100:.1f}%)"
+        message=f"{ai_mode} ({difficulty_label}, 勝率: {mcts.stats.best_move_win_rate*100:.1f}%)"
     )
 
 
