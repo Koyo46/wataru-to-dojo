@@ -115,10 +115,29 @@ export class WataruToGame {
               }
             } else {
               // レイヤー2モード（橋渡し）
-              if (nextLayer1 === player || nextLayer1 === 0) {
+              if (nextLayer1 === 0) {
+                // 空白の場合は常にOK
                 targetLayer = 1;
+              } else if (nextLayer1 === player) {
+                // 自分のマスの場合、3マス目以降（終点候補）のみOK
+                // path.length >= 2 は「起点 + 2マス目」なので、これから追加するのが3マス目
+                if (path.length >= 2) {
+                  targetLayer = 1;
+                  // 自分の既存マスに到達したので、これが終点
+                  // これ以上先には進めない
+                  path.push({ row: currentRow, col: currentCol, layer: targetLayer });
+                  // この手を追加して、ループを抜ける
+                  if (path.length >= 3) {
+                    moves.push({ player, path: [...path] });
+                  }
+                  break;
+                } else {
+                  // 2マス目（間のマス）には自分のマスがあってはダメ
+                  break;
+                }
               } else {
-                break; // 相手の色がある場合は配置不可
+                // 相手の色の場合は配置不可
+                break;
               }
             }
 

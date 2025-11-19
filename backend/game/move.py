@@ -229,10 +229,17 @@ class MoveValidator:
                     # レイヤー2モード
                     if pos.layer != 1:
                         return False, f"Must place on layer 2 in bridge mode at ({pos.row},{pos.col})"
-                    if layer1 != 0 and layer1 != move.player:
-                        return False, f"Cannot place on opponent's color at ({pos.row},{pos.col})"
+                    # 終点（最後のマス）は自分の既存マスでなければならない
+                    if i == len(sorted_path) - 1:
+                        # 終点: 自分の既存マスのみ（橋渡しの終点）
+                        if layer1 != move.player:
+                            return False, f"Bridge mode endpoint: must be on existing player tile at ({pos.row},{pos.col})"
+                    else:
+                        # 間のマス: 空白でなければならない
+                        if layer1 != 0:
+                            return False, f"Layer 1 must be empty in bridge mode (intermediate) at ({pos.row},{pos.col})"
         
-        # 橋渡しモードの場合、終点チェック
+        # 橋渡しモードの場合、終点は既存マスでなければならない
         if move.is_bridge_mode:
             end_pos = move.end_position
             end_layer1 = board[end_pos.row][end_pos.col][0]

@@ -213,10 +213,28 @@ class WataruToGame:
                                     break  # 配置不可
                             else:
                                 # レイヤー2モード（橋渡し）
-                                if next_layer1 == player or next_layer1 == 0:
+                                if next_layer1 == 0:
+                                    # 空白の場合は常にOK
                                     target_layer = 1
+                                elif next_layer1 == player:
+                                    # 自分のマスの場合、3マス目以降（終点候補）のみOK
+                                    # len(path) >= 2 は「起点 + 2マス目」なので、これから追加するのが3マス目
+                                    if len(path) >= 2:
+                                        target_layer = 1
+                                        # 自分の既存マスに到達したので、これが終点
+                                        # これ以上先には進めない
+                                        path.append(Position(current_row, current_col, target_layer))
+                                        # この手を追加して、ループを抜ける
+                                        if len(path) >= 3:
+                                            if self.player_blocks[player].has_block(len(path)):
+                                                moves.append(Move(player=player, path=path.copy(), timestamp=datetime.now().timestamp()))
+                                        break
+                                    else:
+                                        # 2マス目（間のマス）には自分のマスがあってはダメ
+                                        break
                                 else:
-                                    break  # 相手の色がある場合は配置不可
+                                    # 相手の色の場合は配置不可
+                                    break
                             
                             path.append(Position(current_row, current_col, target_layer))
                             

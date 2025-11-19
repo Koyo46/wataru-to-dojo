@@ -292,7 +292,51 @@ class MCTS:
                     
                     return blocking_move
                 else:
-                    print(f"[詰み確定] 防御不可能、最善手を探索します")
+                    print(f"[詰み確定] 防御不可能")
+                    print(f"[戦術] 相手の勝利手を最も減らす手を選択します")
+                    print(f"{'='*60}\n")
+                    
+                    # 詰みの場合：各手を試して、相手の勝利手が最も少なくなる手を選ぶ
+                    legal_moves = game_state.get_legal_moves()
+                    best_move = None
+                    min_opponent_winning_moves = float('inf')
+                    
+                    for my_move in legal_moves:
+                        test_game = game_state.clone()
+                        test_game.apply_move(my_move)
+                        
+                        # この手を打った後、相手の勝利手の数を数える
+                        opponent_moves_after = test_game.get_legal_moves()
+                        opponent_winning_count = 0
+                        
+                        for opp_move in opponent_moves_after:
+                            test_game2 = test_game.clone()
+                            test_game2.apply_move(opp_move)
+                            
+                            if test_game2.winner == opponent:
+                                opponent_winning_count += 1
+                        
+                        # 相手の勝利手が最も少ない手を記録
+                        if opponent_winning_count < min_opponent_winning_moves:
+                            min_opponent_winning_moves = opponent_winning_count
+                            best_move = my_move
+                    
+                    if best_move:
+                        print(f"[詰み対応] 相手の勝利手を {len(opponent_winning_moves)}通り → {min_opponent_winning_moves}通りに削減")
+                        print(f"[選択手] {best_move}")
+                        print(f"{'='*60}\n")
+                        
+                        # 統計情報を簡易的に設定
+                        self.stats.simulations_run = 0
+                        self.stats.time_elapsed = time.time() - start_time
+                        self.stats.nodes_explored = 1
+                        self.stats.best_move_visits = 1
+                        self.stats.best_move_win_rate = 0.0  # 詰みなので0%
+                        
+                        return best_move
+                    
+                    # 手が見つからない場合は通常のMCTS探索を続行
+                    print(f"[フォールバック] 通常探索を実行します")
                     print(f"{'='*60}\n")
         
         # シミュレーション回数をカウント
@@ -317,11 +361,74 @@ class MCTS:
         self.stats.time_elapsed = time.time() - start_time
         self.stats.nodes_explored = self._count_nodes(root)
         
-        # 最も訪問回数が多い子ノードを選択
+        # 最も訪問回数が多い子ノードを選択（同率の場合は方向性を考慮）
         if not root.children:
             return None
         
-        best_child = max(root.children, key=lambda child: child.visits)
+        # 候補手をリストアップ
+        candidates = sorted(root.children, key=lambda child: child.visits, reverse=True)
+        
+        if not candidates:
+            return None
+        
+        # 最良手の訪問回数
+        best_visits = candidates[0].visits
+        best_win_rate = candidates[0].wins / candidates[0].visits if candidates[0].visits > 0 else 0.0
+        
+        # 訪問回数が同じ（または近い）手を抽出（許容誤差10%）
+        threshold = best_visits * 0.9
+        similar_candidates = [child for child in candidates if child.visits >= threshold]
+        
+        # 勝率も同程度の手を抽出（許容誤差5%）
+        win_rate_threshold = 0.05
+        similar_win_rate_candidates = []
+        for child in similar_candidates:
+            child_win_rate = child.wins / child.visits if child.visits > 0 else 0.0
+            if abs(child_win_rate - best_win_rate) <= win_rate_threshold:
+                similar_win_rate_candidates.append(child)
+        
+        # 同程度の候補がある場合、方向性を考慮
+        if len(similar_win_rate_candidates) > 1:
+            current_player = game_state.current_player
+            
+            def get_direction_score(move: Move) -> int:
+                """
+                手の方向性スコアを計算
+                - 水色(1): 縦方向(vertical)を優先 → 上下に繋ぐ
+                - ピンク(-1): 横方向(horizontal)を優先 → 左右に繋ぐ
+                """
+                if not move or not move.path or len(move.path) < 2:
+                    return 0
+                
+                # 方向を判定
+                first_pos = move.path[0]
+                last_pos = move.path[-1]
+                
+                is_vertical = first_pos.col == last_pos.col  # 列が同じ = 縦方向
+                is_horizontal = first_pos.row == last_pos.row  # 行が同じ = 横方向
+                
+                if current_player == 1:  # 水色
+                    # 縦方向を優先
+                    if is_vertical:
+                        return 2
+                    elif is_horizontal:
+                        return 0
+                else:  # ピンク
+                    # 横方向を優先
+                    if is_horizontal:
+                        return 2
+                    elif is_vertical:
+                        return 0
+                
+                return 1  # その他
+            
+            # 方向性スコアでソート（高い順）、同じならvisitsで決定
+            similar_win_rate_candidates.sort(
+                key=lambda child: (get_direction_score(child.move), child.visits),
+                reverse=True
+            )
+        
+        best_child = similar_win_rate_candidates[0] if similar_win_rate_candidates else candidates[0]
         self.stats.best_move_visits = best_child.visits
         self.stats.best_move_win_rate = best_child.wins / best_child.visits if best_child.visits > 0 else 0.0
         

@@ -153,11 +153,21 @@ export default function Home() {
         return;
       }
     } else {
-      if (layer1 === currentPlayer) {
+      // レイヤー2モード（橋渡し）
+      if (layer1 === 0) {
+        // 空白の場合は常にOK
         targetLayer = 1;
-      } else if (layer1 === 0) {
-        targetLayer = 1;
+      } else if (layer1 === currentPlayer) {
+        // 自分のマスの場合、3マス目以降（終点候補）のみOK
+        // currentPath.length >= 2 は「起点 + 2マス目以上」なので、これから追加するのが3マス目以降
+        if (currentPath.length >= 2) {
+          targetLayer = 1;
+        } else {
+          // 2マス目（間のマス）には自分のマスがあってはダメ
+          return;
+        }
       } else {
+        // 相手の色の場合は配置不可
         return;
       }
     }
