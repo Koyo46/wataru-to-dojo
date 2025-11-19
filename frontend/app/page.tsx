@@ -269,17 +269,20 @@ export default function Home() {
     setIsLoading(true);
     setErrorMessage(null);
     
-    try {
-      const response = await apiClient.resetGame(gameId);
+    const response = await apiClient.resetGame(gameId);
+    
+    if (response) {
+      // リセット成功
       updateGameState(response.state);
       setCurrentPath([]);
       setIsAIThinking(false);
-    } catch (error) {
-      console.error("リセットエラー:", error);
+    } else {
+      // リセット失敗（ゲームが存在しないなど）、新しいゲームを作成
+      console.log("ゲームをリセットできませんでした。新しいゲームを作成します。");
       await initializeGame();
-    } finally {
-      setIsLoading(false);
     }
+    
+    setIsLoading(false);
   };
 
   const handleModeChange = async (mode: GameMode) => {

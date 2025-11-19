@@ -183,16 +183,24 @@ export class WataruToAPIClient {
   /**
    * ゲームをリセット
    */
-  async resetGame(gameId: string): Promise<GameStateResponse> {
-    const response = await fetch(`${this.baseUrl}/api/game/${gameId}/reset`, {
-      method: 'POST',
-    });
+  async resetGame(gameId: string): Promise<GameStateResponse | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/game/${gameId}/reset`, {
+        method: 'POST',
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to reset game: ${response.statusText}`);
+      if (!response.ok) {
+        // 404などの場合は、エラーをthrowせずにnullを返す
+        console.warn(`ゲームのリセットに失敗しました (${response.status}): ${response.statusText}`);
+        return null;
+      }
+
+      return response.json();
+    } catch (error) {
+      // ネットワークエラーなど
+      console.error('ゲームのリセット中にエラーが発生しました:', error);
+      return null;
     }
-
-    return response.json();
   }
 
   /**
