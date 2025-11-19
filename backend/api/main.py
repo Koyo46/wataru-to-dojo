@@ -290,10 +290,10 @@ async def get_ai_move(request: AIMovesRequest):
     if game.winner is not None:
         raise HTTPException(status_code=400, detail="Game is already finished")
     
-    # MCTSエンジンを作成（5秒制限）
+    # MCTSエンジンを作成（10秒制限）
     print(f"[MCTS AI] 思考開始（プレイヤー: {request.player}）")
     mcts = create_mcts_engine(
-        time_limit=5.0,  # 5秒で探索
+        time_limit=10.0,  # 10秒で探索（9x9盤面で約640回のシミュレーション）
         exploration_weight=1.41,
         verbose=True  # サーバーログに統計情報を出力
     )

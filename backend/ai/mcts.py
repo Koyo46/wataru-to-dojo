@@ -293,7 +293,7 @@ class MCTS:
 
 # デフォルトのMCTSエンジンを作成
 def create_mcts_engine(
-    time_limit: float = 5.0,
+    time_limit: float = 10.0,
     exploration_weight: float = 1.41,
     verbose: bool = True
 ) -> MCTS:

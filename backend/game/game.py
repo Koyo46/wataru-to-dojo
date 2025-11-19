@@ -180,8 +180,8 @@ class WataruToGame:
                 
                 # 各レイヤーで探索
                 for start_layer in start_layers:
-                    # 4方向に探索
-                    directions = [(0, 1), (0, -1), (1, 0), (-1, 0)]  # 右、左、下、上
+                    # 2方向に探索（正方向のみ、逆方向は重複なので除外）
+                    directions = [(0, 1), (1, 0)]  # 右、下のみ
                     
                     for dr, dc in directions:
                         # 3マス、4マス、5マスの手を生成
