@@ -10,7 +10,7 @@ backend_path = Path(__file__).parent
 sys.path.insert(0, str(backend_path))
 
 from game.game import WataruToGame
-from ai.mcts import create_mcts_engine
+from ai.mcts import create_mcts_engine, visualize_board
 import random
 
 
@@ -28,13 +28,17 @@ def play_game_random_vs_random(board_size=18):
     return game.winner
 
 
-def play_game_mcts_vs_random(board_size=18, time_limit=5.0, verbose=False):
+def play_game_mcts_vs_random(board_size=9, time_limit=5.0, verbose=False, show_board=False):
     """MCTS AI vs ランダムAIで1ゲーム"""
     game = WataruToGame(board_size)
     mcts = create_mcts_engine(time_limit=time_limit, verbose=False)
     
     move_count = 0
     max_moves = 500  # 無限ループ防止（増やす）
+    
+    # 初期盤面を表示
+    if show_board:
+        print(visualize_board(game, f"初期盤面"))
     
     while game.winner is None and move_count < max_moves:
         if game.current_player == 1:
@@ -48,6 +52,7 @@ def play_game_mcts_vs_random(board_size=18, time_limit=5.0, verbose=False):
                 break
             if verbose:
                 print(f"完了")
+                print(f"  MCTS が選択した手: {move}")
         else:
             # ランダムAIの手番（ピンク）
             moves = game.get_legal_moves()
@@ -56,6 +61,8 @@ def play_game_mcts_vs_random(board_size=18, time_limit=5.0, verbose=False):
                     print(f"  ターン {move_count + 1}: ランダムAI - 合法手なし")
                 break
             move = random.choice(moves)
+            if verbose:
+                print(f"  ターン {move_count + 1}: ランダムAI が選択した手: {move}")
         
         success = game.apply_move(move)
         if not success:
@@ -63,6 +70,12 @@ def play_game_mcts_vs_random(board_size=18, time_limit=5.0, verbose=False):
                 print(f"  手の適用に失敗！")
             break
         move_count += 1
+        
+        # 手を打った後の盤面を表示
+        if show_board:
+            player_name = "水色🔵(MCTS)" if game.current_player == -1 else "ピンク🔴(Random)"
+            prev_player = "水色🔵(MCTS)" if game.current_player == 1 else "ピンク🔴(Random)"
+            print(visualize_board(game, f"手 {move_count}: {prev_player} が打った後"))
     
     # 最終的な勝者を返す
     if verbose:
@@ -73,6 +86,10 @@ def play_game_mcts_vs_random(board_size=18, time_limit=5.0, verbose=False):
             print(f"  勝者: ランダム (ピンク)")
         else:
             print(f"  勝者: 引き分け")
+    
+    # 最終盤面を表示
+    if show_board and verbose:
+        print(visualize_board(game, f"最終盤面"))
     
     if game.winner is None:
         if move_count >= max_moves:
@@ -85,7 +102,7 @@ def play_game_mcts_vs_random(board_size=18, time_limit=5.0, verbose=False):
     return game.winner
 
 
-def evaluate_mcts(num_games=10, board_size=18, time_limit=5.0):
+def evaluate_mcts(num_games=10, board_size=9, time_limit=5.0):
     """
     MCTSの性能を評価
     
@@ -125,13 +142,13 @@ def evaluate_mcts(num_games=10, board_size=18, time_limit=5.0):
     print("=" * 60)
 
 
-def quick_test(board_size=18):
+def quick_test(board_size=9, show_board=False):
     """クイックテスト（1ゲーム）"""
     print("=" * 60)
     print(f"クイックテスト開始（{board_size}x{board_size}盤面、1ゲーム、3秒思考）")
     print("=" * 60)
     
-    winner = play_game_mcts_vs_random(board_size=board_size, time_limit=3.0, verbose=True)
+    winner = play_game_mcts_vs_random(board_size=board_size, time_limit=3.0, verbose=True, show_board=show_board)
     
     print("\n" + "=" * 60)
     if winner == 1:
@@ -150,12 +167,13 @@ if __name__ == "__main__":
     parser.add_argument("--quick", action="store_true", help="クイックテスト（1ゲーム）")
     parser.add_argument("--games", type=int, default=10, help="評価ゲーム数（デフォルト: 10）")
     parser.add_argument("--time", type=float, default=5.0, help="思考時間制限（秒、デフォルト: 5.0）")
-    parser.add_argument("--size", type=int, default=18, help="盤面サイズ（デフォルト: 18）")
+    parser.add_argument("--size", type=int, default=9, help="盤面サイズ（デフォルト: 9）")
+    parser.add_argument("--show-board", action="store_true", help="一手ごとに盤面を表示")
     
     args = parser.parse_args()
     
     if args.quick:
-        quick_test(board_size=args.size)
+        quick_test(board_size=args.size, show_board=args.show_board)
     else:
         evaluate_mcts(num_games=args.games, board_size=args.size, time_limit=args.time)
 

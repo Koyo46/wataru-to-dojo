@@ -20,6 +20,65 @@ from game.game import WataruToGame
 from game.move import Move
 
 
+def visualize_board(game_state: WataruToGame, title: str = "盤面状態") -> str:
+    """
+    ゲーム盤面を視覚化して文字列として返す
+    
+    Args:
+        game_state: 表示するゲーム状態
+        title: 表示タイトル
+    
+    Returns:
+        視覚化された盤面の文字列
+    """
+    board = game_state.board.board
+    size = len(board)
+    
+    # 色の記号
+    symbols = {
+        0: '·',   # 空
+        1: '🔵',  # 水色 (プレイヤー1)
+        -1: '🔴', # ピンク (プレイヤー-1)
+    }
+    
+    lines = []
+    lines.append(f"\n{'='*60}")
+    lines.append(f"{title}")
+    lines.append(f"{'='*60}")
+    
+    # レイヤー1
+    lines.append("【レイヤー1】")
+    lines.append("    " + "".join(f"{i:2d}" for i in range(min(10, size))))
+    for row in range(size):
+        layer1_cells = [symbols[board[row][col][0]] for col in range(size)]
+        lines.append(f"{row:2d}: " + " ".join(layer1_cells))
+    
+    # レイヤー2（何か置かれている場合のみ）
+    has_layer2 = any(board[row][col][1] != 0 for row in range(size) for col in range(size))
+    if has_layer2:
+        lines.append("\n【レイヤー2】")
+        lines.append("    " + "".join(f"{i:2d}" for i in range(min(10, size))))
+        for row in range(size):
+            layer2_cells = [symbols[board[row][col][1]] for col in range(size)]
+            lines.append(f"{row:2d}: " + " ".join(layer2_cells))
+    
+    # ゲーム情報
+    current_player_name = "水色🔵" if game_state.current_player == 1 else "ピンク🔴"
+    lines.append(f"\n現在のプレイヤー: {current_player_name}")
+    lines.append(f"手数: {len(game_state.move_history)}")
+    
+    if game_state.winner is not None:
+        if game_state.winner == 0:
+            lines.append("結果: 引き分け")
+        else:
+            winner_name = "水色🔵" if game_state.winner == 1 else "ピンク🔴"
+            lines.append(f"勝者: {winner_name}")
+    
+    lines.append(f"{'='*60}\n")
+    
+    return "\n".join(lines)
+
+
 @dataclass
 class MCTSStats:
     """MCTS統計情報"""
@@ -136,7 +195,9 @@ class MCTS:
         time_limit: float = 15.0,
         max_simulations: Optional[int] = None,
         verbose: bool = False,
-        use_tactical_heuristics: bool = True
+        use_tactical_heuristics: bool = True,
+        debug_playout: bool = False,
+        debug_playout_count: int = 1
     ):
         """
         Args:
@@ -147,13 +208,18 @@ class MCTS:
             use_tactical_heuristics: 戦術的ヒューリスティックを使用するか
                 True: Tactical MCTS（勝利手検出・防御あり）
                 False: Pure MCTS（完全ランダムプレイアウト）
+            debug_playout: プレイアウトのデバッグ情報を表示するか
+            debug_playout_count: デバッグ表示するプレイアウトの回数
         """
         self.exploration_weight = exploration_weight
         self.time_limit = time_limit
         self.max_simulations = max_simulations
         self.verbose = verbose
         self.use_tactical_heuristics = use_tactical_heuristics
+        self.debug_playout = debug_playout
+        self.debug_playout_count = debug_playout_count
         self.stats = MCTSStats()
+        self._simulation_count = 0  # 現在のシミュレーション回数
     
     def search(self, game_state: WataruToGame) -> Optional[Move]:
         """
@@ -167,6 +233,7 @@ class MCTS:
         """
         start_time = time.time()
         self.stats = MCTSStats()
+        self._simulation_count = 0  # リセット
         
         # ルートノードを作成
         root = MCTSNode(game_state.clone())
@@ -266,17 +333,32 @@ class MCTS:
     def _simulate_once(self, root: MCTSNode):
         """1回のシミュレーションを実行"""
         
+        # デバッグモードチェック
+        should_debug = self.debug_playout and self._simulation_count < self.debug_playout_count
+        
+        if should_debug:
+            print(f"\n{'#'*60}")
+            print(f"# シミュレーション {self._simulation_count + 1}/{self.debug_playout_count}")
+            print(f"{'#'*60}")
+        
         # 1. Selection: UCB1で葉ノードまで選択
         node = root
+        selection_depth = 0
         while not node.is_terminal() and node.is_fully_expanded() and node.children:
             node = node.select_child()
+            selection_depth += 1
+        
+        if should_debug:
+            print(f"\n[Selection] 深さ {selection_depth} のノードまで選択")
         
         # 2. Expansion: 未展開のノードがあれば展開
         if not node.is_terminal() and not node.is_fully_expanded():
             node = node.expand()
+            if should_debug:
+                print(f"[Expansion] 新しいノードを展開: {node.move}")
         
         # 3. Simulation: ランダムプレイアウト
-        result = self._simulate_random_playout(node.game_state.clone())
+        result = self._simulate_random_playout(node.game_state.clone(), debug=should_debug)
         
         # 4. Backpropagation: 結果を伝播
         # resultは勝者視点（1=勝利, -1=敗北, 0=引き分け）
@@ -288,7 +370,14 @@ class MCTS:
         else:
             node_result = 0.0  # 敗北
         
+        if should_debug:
+            result_str = "勝利" if node_result == 1.0 else "引き分け" if node_result == 0.5 else "敗北"
+            winner_name = "水色🔵" if result == 1 else "ピンク🔴" if result == -1 else "引き分け"
+            print(f"\n[Backpropagation] プレイアウト結果: {winner_name} (ノード視点: {result_str})")
+            print(f"{'#'*60}\n")
+        
         node.backpropagate(node_result)
+        self._simulation_count += 1
     
     def _find_winning_move(self, game_state: WataruToGame, legal_moves: List[Move], max_check: int = 30) -> Optional[Move]:
         """
@@ -401,18 +490,22 @@ class MCTS:
             print(f"{'='*60}\n")
         return None
     
-    def _simulate_pure_random_playout(self, game_state: WataruToGame) -> int:
+    def _simulate_pure_random_playout(self, game_state: WataruToGame, debug: bool = False) -> int:
         """
         Pure MCTSモード: 完全ランダムプレイアウト
         
         Args:
             game_state: シミュレーション開始状態
+            debug: デバッグ情報を出力するか
         
         Returns:
             勝者（1, -1, 0=引き分け）
         """
         max_moves = 100  # 無限ループ防止
         move_count = 0
+        
+        if debug:
+            print(visualize_board(game_state, f"プレイアウト開始 (Pure Random)"))
         
         while game_state.winner is None and move_count < max_moves:
             legal_moves = game_state.get_legal_moves()
@@ -422,8 +515,20 @@ class MCTS:
             
             # 完全ランダムに選択
             move = random.choice(legal_moves)
+            
+            if debug:
+                player_name = "水色🔵" if move.player == 1 else "ピンク🔴"
+                print(f"\n[手 {move_count + 1}] {player_name} が打った手: {move}")
+                print(f"  合法手の数: {len(legal_moves)}")
+            
             game_state.apply_move(move)
             move_count += 1
+            
+            if debug and move_count % 5 == 0:  # 5手ごとに盤面表示
+                print(visualize_board(game_state, f"プレイアウト途中 ({move_count}手目)"))
+        
+        if debug:
+            print(visualize_board(game_state, f"プレイアウト終了 ({move_count}手)"))
         
         # 勝者を返す
         if game_state.winner is None:
@@ -464,7 +569,7 @@ class MCTS:
         
         return False
     
-    def _simulate_tactical_playout(self, game_state: WataruToGame) -> int:
+    def _simulate_tactical_playout(self, game_state: WataruToGame, debug: bool = False) -> int:
         """
         Tactical MCTSモード: 戦術的ヒューリスティック付きプレイアウト
         
@@ -475,12 +580,16 @@ class MCTS:
         
         Args:
             game_state: シミュレーション開始状態
+            debug: デバッグ情報を出力するか
         
         Returns:
             勝者（1, -1, 0=引き分け）
         """
         max_moves = 100  # 無限ループ防止
         move_count = 0
+        
+        if debug:
+            print(visualize_board(game_state, f"プレイアウト開始 (Tactical)"))
         
         while game_state.winner is None and move_count < max_moves:
             legal_moves = game_state.get_legal_moves()
@@ -491,14 +600,31 @@ class MCTS:
             # 1. 即座に勝てる手があれば必ず打つ（高速チェック）
             winning_move = self._find_winning_move(game_state, legal_moves)
             if winning_move:
+                if debug:
+                    player_name = "水色🔵" if winning_move.player == 1 else "ピンク🔴"
+                    print(f"\n[手 {move_count + 1}] {player_name} が勝利手を発見！: {winning_move}")
+                    print(f"  合法手の数: {len(legal_moves)}")
+                
                 game_state.apply_move(winning_move)
                 move_count += 1
                 continue
             
             # 2. ランダムに選択（防御チェックはスキップして高速化）
             move = random.choice(legal_moves)
+            
+            if debug:
+                player_name = "水色🔵" if move.player == 1 else "ピンク🔴"
+                print(f"\n[手 {move_count + 1}] {player_name} が打った手: {move}")
+                print(f"  合法手の数: {len(legal_moves)}")
+            
             game_state.apply_move(move)
             move_count += 1
+            
+            if debug and move_count % 5 == 0:  # 5手ごとに盤面表示
+                print(visualize_board(game_state, f"プレイアウト途中 ({move_count}手目)"))
+        
+        if debug:
+            print(visualize_board(game_state, f"プレイアウト終了 ({move_count}手)"))
         
         # 勝者を返す
         if game_state.winner is None:
@@ -506,20 +632,21 @@ class MCTS:
         
         return game_state.winner
     
-    def _simulate_random_playout(self, game_state: WataruToGame) -> int:
+    def _simulate_random_playout(self, game_state: WataruToGame, debug: bool = False) -> int:
         """
         ランダムプレイアウトを実行（モードに応じて切り替え）
         
         Args:
             game_state: シミュレーション開始状態
+            debug: デバッグ情報を出力するか
         
         Returns:
             勝者（1, -1, 0=引き分け）
         """
         if self.use_tactical_heuristics:
-            return self._simulate_tactical_playout(game_state)
+            return self._simulate_tactical_playout(game_state, debug=debug)
         else:
-            return self._simulate_pure_random_playout(game_state)
+            return self._simulate_pure_random_playout(game_state, debug=debug)
     
     def _count_nodes(self, node: MCTSNode) -> int:
         """探索木のノード数をカウント"""
@@ -554,8 +681,11 @@ class MCTS:
 def create_mcts_engine(
     time_limit: float = 10.0,
     exploration_weight: float = 1.41,
+    max_simulations: Optional[int] = None,
     verbose: bool = True,
-    use_tactical_heuristics: bool = True
+    use_tactical_heuristics: bool = True,
+    debug_playout: bool = False,
+    debug_playout_count: int = 1
 ) -> MCTS:
     """
     MCTSエンジンを作成するヘルパー関数
@@ -563,10 +693,13 @@ def create_mcts_engine(
     Args:
         time_limit: 探索時間制限（秒）
         exploration_weight: 探索パラメータ
+        max_simulations: 最大シミュレーション回数（Noneなら時間制限のみ）
         verbose: デバッグ情報を出力するか
         use_tactical_heuristics: 戦術的ヒューリスティックを使用するか
             True: Tactical MCTS（強い、遅い）
             False: Pure MCTS（弱い、速い）
+        debug_playout: プレイアウトのデバッグ情報を表示するか
+        debug_playout_count: デバッグ表示するプレイアウトの回数
     
     Returns:
         MCTSエンジンインスタンス
@@ -574,6 +707,9 @@ def create_mcts_engine(
     return MCTS(
         exploration_weight=exploration_weight,
         time_limit=time_limit,
+        max_simulations=max_simulations,
         verbose=verbose,
-        use_tactical_heuristics=use_tactical_heuristics
+        use_tactical_heuristics=use_tactical_heuristics,
+        debug_playout=debug_playout,
+        debug_playout_count=debug_playout_count
     )
