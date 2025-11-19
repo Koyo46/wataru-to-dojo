@@ -269,12 +269,17 @@ class WataruToGame:
                                     # 無効な手はスキップ
                                     continue
         
-        # 初手フィルタリングが有効な場合、盤面が空なら方向を絞る
-        if filter_opening and len(self.move_history) == 0:
-            # 水色（プレイヤー1）は縦方向（vertical）のみ
-            # ピンク（プレイヤー-1）は横方向（horizontal）のみ
-            preferred_direction = "vertical" if player == 1 else "horizontal"
-            moves = [m for m in moves if m.direction == preferred_direction]
+        # 初手フィルタリングが有効な場合、そのプレイヤーの初手なら方向を絞る
+        if filter_opening:
+            # そのプレイヤーが過去に手を打ったかチェック
+            player_has_moved = any(move.player == player for move in self.move_history)
+            
+            if not player_has_moved:
+                # このプレイヤーの初手
+                # 水色（プレイヤー1）は縦方向（vertical）のみ
+                # ピンク（プレイヤー-1）は横方向（horizontal）のみ
+                preferred_direction = "vertical" if player == 1 else "horizontal"
+                moves = [m for m in moves if m.direction == preferred_direction]
         
         # キャッシュに保存（filter_openingがFalseの場合のみ）
         if not filter_opening:
