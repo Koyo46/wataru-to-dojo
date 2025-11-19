@@ -24,24 +24,38 @@ def test_legal_moves_performance(board_size=9, iterations=100):
     # ウォームアップ
     _ = game.get_legal_moves()
     
-    # 測定開始
+    # 測定開始（キャッシュなし）
     start_time = time.time()
     
     for _ in range(iterations):
+        game._cache_valid = False  # キャッシュを無効化して本当の速度を測定
         moves = game.get_legal_moves()
     
     elapsed_time = time.time() - start_time
     
+    # キャッシュありの測定
+    cache_start = time.time()
+    for _ in range(iterations):
+        moves = game.get_legal_moves()  # キャッシュが効く
+    cache_elapsed = time.time() - cache_start
+    
     # 結果表示
     moves_count = len(moves)
-    calls_per_sec = iterations / elapsed_time
+    calls_per_sec = iterations / elapsed_time if elapsed_time > 0 else float('inf')
+    cache_calls_per_sec = iterations / cache_elapsed if cache_elapsed > 0 else float('inf')
     
     print(f"\n結果:")
     print(f"  合法手の数: {moves_count}手")
     print(f"  実行回数: {iterations}回")
+    print(f"\n【キャッシュなし】")
     print(f"  実行時間: {elapsed_time:.3f}秒")
     print(f"  呼び出し/秒: {calls_per_sec:.1f}回/秒")
     print(f"  1回あたり: {elapsed_time/iterations*1000:.2f}ミリ秒")
+    print(f"\n【キャッシュあり】")
+    print(f"  実行時間: {cache_elapsed:.6f}秒")
+    print(f"  呼び出し/秒: {cache_calls_per_sec:.0f}回/秒")
+    print(f"  1回あたり: {cache_elapsed/iterations*1000000:.2f}マイクロ秒")
+    print(f"\n高速化率: {calls_per_sec/cache_calls_per_sec*100 if cache_calls_per_sec < float('inf') else 0:.1f}倍")
     print("=" * 60)
     
     return calls_per_sec

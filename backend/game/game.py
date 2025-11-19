@@ -94,6 +94,10 @@ class WataruToGame:
             }
             self.move_history: List[Move] = []
             self.winner: Optional[Literal[1, -1, 0]] = None
+            
+            # 合法手キャッシュ
+            self._legal_moves_cache: Optional[List[Move]] = None
+            self._cache_valid = False
     
     def _load_state(self, state: Dict) -> None:
         """状態を読み込む"""
@@ -105,6 +109,10 @@ class WataruToGame:
         }
         self.move_history = [Move.from_dict(m) for m in state["move_history"]]
         self.winner = state.get("winner")
+        
+        # 合法手キャッシュの初期化
+        self._legal_moves_cache: Optional[List[Move]] = None
+        self._cache_valid = False
     
     def get_state(self) -> Dict:
         """現在の状態を取得"""
@@ -134,11 +142,15 @@ class WataruToGame:
     
     def get_legal_moves(self) -> List[Move]:
         """
-        現在のプレイヤーの合法手をすべて取得
+        現在のプレイヤーの合法手をすべて取得（キャッシング対応）
         
         Returns:
             合法手のリスト
         """
+        # キャッシュが有効ならそれを返す
+        if self._cache_valid and self._legal_moves_cache is not None:
+            return self._legal_moves_cache
+        
         if self.winner is not None:
             return []  # ゲーム終了後は手なし
         
@@ -233,6 +245,10 @@ class WataruToGame:
                                     # 無効な手はスキップ
                                     continue
         
+        # キャッシュに保存
+        self._legal_moves_cache = moves
+        self._cache_valid = True
+        
         return moves
     
     def is_valid_move(self, move: Move) -> Tuple[bool, str]:
@@ -298,6 +314,9 @@ class WataruToGame:
         if self.winner is None:
             self.current_player = -self.current_player  # type: ignore
         
+        # キャッシュを無効化（盤面が変わったので）
+        self._cache_valid = False
+        
         return True
     
     def check_winner(self) -> Optional[Literal[1, -1, 0]]:
@@ -343,6 +362,9 @@ class WataruToGame:
         }
         self.move_history = []
         self.winner = None
+        
+        # キャッシュを無効化
+        self._cache_valid = False
     
     def export_game_record(self) -> str:
         """
