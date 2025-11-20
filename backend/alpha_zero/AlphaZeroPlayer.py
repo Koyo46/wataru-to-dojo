@@ -15,6 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'alpha-zero-genera
 from alpha_zero.WataruToGame import WataruToGame as GameWrapper
 from alpha_zero.pytorch.NNet import NNetWrapper as NNet
 from alpha_zero.DepthLimitedMCTS import DepthLimitedMCTS
+from alpha_zero.model_loader import ModelLoader
 from game.game import WataruToGame
 from game.move import Move
 from utils import dotdict
@@ -27,12 +28,12 @@ class AlphaZeroPlayer:
     学習済みモデルを使って手を選択
     """
     
-    def __init__(self, model_path='alpha_zero/models/best.pth.tar', num_mcts_sims=50, board_size=9):
+    def __init__(self, model_path=None, num_mcts_sims=50, board_size=9):
         """
         初期化
         
         Args:
-            model_path: 学習済みモデルのパス
+            model_path: 学習済みモデルのパス（Noneの場合は自動検索/ダウンロード）
             num_mcts_sims: MCTSシミュレーション回数（多いほど強いが遅い）
             board_size: 盤面サイズ
         """
@@ -59,18 +60,21 @@ class AlphaZeroPlayer:
         self.nnet = NNet(self.game_wrapper, args)
         
         try:
-            # モデルファイルのパスを解決
-            if not os.path.isabs(model_path):
-                model_path = os.path.join(os.path.dirname(__file__), '..', model_path)
+            # モデルローダーを使ってパスを取得（自動ダウンロード対応）
+            resolved_path = ModelLoader.load_model_path(model_path)
             
-            folder = os.path.dirname(model_path)
-            filename = os.path.basename(model_path)
+            # 絶対パスに変換
+            if not os.path.isabs(resolved_path):
+                resolved_path = os.path.abspath(resolved_path)
+            
+            folder = os.path.dirname(resolved_path)
+            filename = os.path.basename(resolved_path)
             
             self.nnet.load_checkpoint(folder=folder, filename=filename)
-            print(f"✅ Alpha Zeroモデル読み込み成功: {model_path}")
+            print(f"[OK] Alpha Zeroモデル読み込み成功: {resolved_path}")
         except Exception as e:
-            print(f"WARNING: モデル読み込み失敗: {e}")
-            print("ランダムな初期重みで動作します")
+            print(f"[WARNING] モデル読み込み失敗: {e}")
+            print("[WARNING] ランダムな初期重みで動作します")
         
         # MCTS設定
         mcts_args = dotdict({
@@ -81,7 +85,7 @@ class AlphaZeroPlayer:
         
         self.mcts = DepthLimitedMCTS(self.game_wrapper, self.nnet, mcts_args)
         
-        print(f"OK: Alpha Zero AIプレイヤー作成完了")
+        print(f"[OK] Alpha Zero AIプレイヤー作成完了")
         print(f"   MCTSシミュレーション回数: {num_mcts_sims}")
         print(f"   盤面サイズ: {board_size}x{board_size}")
     

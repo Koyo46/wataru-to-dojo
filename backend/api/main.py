@@ -27,18 +27,34 @@ from mcts.mcts import create_mcts_engine
 _alpha_zero_player = None
 
 def get_alpha_zero_player():
-    """Alpha Zero AIプレイヤーのシングルトン取得"""
+    """
+    Alpha Zero AIプレイヤーのシングルトン取得
+    
+    環境変数による設定:
+    - ALPHAZERO_MODEL_PATH: ローカルモデルファイルのパス
+    - ALPHAZERO_MODEL_URL: リモートモデルのダウンロードURL
+    - ALPHAZERO_MCTS_SIMS: MCTSシミュレーション回数（デフォルト: 50）
+    """
     global _alpha_zero_player
     if _alpha_zero_player is None:
         try:
             from alpha_zero.AlphaZeroPlayer import AlphaZeroPlayer
+            
+            # 環境変数からMCTSシミュレーション回数を取得
+            num_sims = int(os.getenv('ALPHAZERO_MCTS_SIMS', '50'))
+            
+            # model_path=None にすることで、ModelLoaderが自動的にパスを解決
+            # （ローカル検索 → 環境変数 → ダウンロード）
             _alpha_zero_player = AlphaZeroPlayer(
-                model_path='alpha_zero/models/best.pth.tar',
-                num_mcts_sims=50,  # 実用的な速度
+                model_path=None,  # 自動解決
+                num_mcts_sims=num_sims,
                 board_size=9
             )
+            print(f"[OK] Alpha Zero AIプレイヤー初期化完了 (MCTS sims: {num_sims})")
         except Exception as e:
-            print(f"⚠️ Alpha Zero AI読み込み失敗: {e}")
+            print(f"[WARNING] Alpha Zero AI読み込み失敗: {e}")
+            import traceback
+            traceback.print_exc()
             _alpha_zero_player = None
     return _alpha_zero_player
 
