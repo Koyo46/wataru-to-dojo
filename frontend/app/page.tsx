@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { apiClient, Position as APIPosition, Move as APIMove } from "../lib/api-client";
 
-type GameMode = 'pvp' | 'vsAPI';
+type GameMode = 'pvp' | 'vsAPI' | 'vsAlphaZero';
 
 export default function Home() {
   const [gameId, setGameId] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export default function Home() {
 
   // AI対戦モードでAIのターン
   useEffect(() => {
-    if (gameMode === 'vsAPI' && currentPlayer === -1 && !isAIThinking && !isGameOver && gameId) {
+    if ((gameMode === 'vsAPI' || gameMode === 'vsAlphaZero') && currentPlayer === -1 && !isAIThinking && !isGameOver && gameId) {
       executeAIMove();
     }
   }, [currentPlayer, gameMode, isAIThinking, isGameOver, gameId]);
@@ -90,7 +90,10 @@ export default function Home() {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     try {
-      const aiResponse = await apiClient.getAIMove(gameId, -1, aiDifficulty);
+      // Alpha ZeroモードかMCTSモードかで分岐
+      const aiResponse = gameMode === 'vsAlphaZero' 
+        ? await apiClient.getAlphaZeroMove(gameId, -1)
+        : await apiClient.getAIMove(gameId, -1, aiDifficulty);
       
       if (aiResponse.move) {
         const moveResponse = await apiClient.applyMove(gameId, aiResponse.move);
@@ -114,7 +117,7 @@ export default function Home() {
   };
 
   const handleCellClick = (row: number, col: number) => {
-    if (gameMode === 'vsAPI' && currentPlayer === -1) return;
+    if ((gameMode === 'vsAPI' || gameMode === 'vsAlphaZero') && currentPlayer === -1) return;
     if (isAIThinking || isGameOver || !gameId) return;
     
     const layers = board[row][col];
@@ -409,7 +412,19 @@ export default function Home() {
                 : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
             } disabled:opacity-50`}
           >
-            vsバックエンドAI
+            vs MCTS AI
+          </button>
+          <button
+            onClick={() => handleModeChange('vsAlphaZero')}
+            disabled={isLoading || !apiConnected || boardSize !== 9}
+            className={`px-4 py-2 rounded font-bold transition ${
+              gameMode === 'vsAlphaZero' 
+                ? 'bg-purple-600 text-white' 
+                : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+            } disabled:opacity-50`}
+            title={boardSize !== 9 ? "Alpha Zeroは9x9のみ対応" : ""}
+          >
+            🧠 vs Alpha Zero
           </button>
         </div>
 
@@ -520,7 +535,9 @@ export default function Home() {
       <div className="flex-1 flex flex-col items-center justify-center gap-8">
         {currentPlayer === -1 && !isGameOver && (
           <div className="text-2xl font-bold text-pink-400">
-            {gameMode === 'vsAPI' ? 'AIの番です' : 'あなたの番です'}
+            {(gameMode === 'vsAPI' || gameMode === 'vsAlphaZero') ? 
+              (gameMode === 'vsAlphaZero' ? '🧠 Alpha Zeroの番です' : 'AIの番です') 
+              : 'あなたの番です'}
           </div>
         )}
         

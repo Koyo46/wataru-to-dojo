@@ -181,6 +181,31 @@ export class WataruToAPIClient {
   }
 
   /**
+   * Alpha Zero AIの手を取得
+   */
+  async getAlphaZeroMove(
+    gameId: string,
+    player: 1 | -1
+  ): Promise<AIMovesResponse> {
+    const response = await fetch(`${this.baseUrl}/api/ai/alpha-zero-move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        game_id: gameId,
+        player: player,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get Alpha Zero AI move: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
    * ゲームをリセット
    */
   async resetGame(gameId: string): Promise<GameStateResponse | null> {

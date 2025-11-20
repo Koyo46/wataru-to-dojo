@@ -23,6 +23,25 @@ from game.move import Move, Position
 from game.board import Board
 from ai.mcts import create_mcts_engine
 
+# Alpha Zero AI (遅延インポート - 初回使用時にロード)
+_alpha_zero_player = None
+
+def get_alpha_zero_player():
+    """Alpha Zero AIプレイヤーのシングルトン取得"""
+    global _alpha_zero_player
+    if _alpha_zero_player is None:
+        try:
+            from alpha_zero.AlphaZeroPlayer import AlphaZeroPlayer
+            _alpha_zero_player = AlphaZeroPlayer(
+                model_path='alpha_zero/models/best.pth.tar',
+                num_mcts_sims=50,  # 実用的な速度
+                board_size=9
+            )
+        except Exception as e:
+            print(f"⚠️ Alpha Zero AI読み込み失敗: {e}")
+            _alpha_zero_player = None
+    return _alpha_zero_player
+
 
 # FastAPIアプリケーション
 app = FastAPI(
@@ -324,6 +343,70 @@ async def get_ai_move(request: AIMovesRequest):
         move=best_move.to_dict(),
         message=f"{ai_mode} ({difficulty_label}, 勝率: {mcts.stats.best_move_win_rate*100:.1f}%)"
     )
+
+
+@app.post("/api/ai/alpha-zero-move", response_model=AIMovesResponse)
+async def get_alpha_zero_move(request: AIMovesRequest):
+    """
+    Alpha Zero AIの手を取得
+    
+    Args:
+        request: AI手取得リクエスト
+        
+    Returns:
+        Alpha Zero AIが選択した手
+    """
+    if request.game_id not in game_sessions:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    game = game_sessions[request.game_id]
+    
+    # 現在のプレイヤーチェック
+    if game.current_player != request.player:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Not player {request.player}'s turn"
+        )
+    
+    # ゲーム終了チェック
+    if game.winner is not None:
+        raise HTTPException(status_code=400, detail="Game is already finished")
+    
+    # Alpha Zero AIプレイヤーを取得
+    alpha_zero_ai = get_alpha_zero_player()
+    
+    if alpha_zero_ai is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Alpha Zero AI is not available. Model may not be loaded."
+        )
+    
+    print(f"[Alpha Zero AI] 思考開始（プレイヤー: {request.player}）")
+    
+    try:
+        # Alpha Zero AIで手を取得
+        best_move = alpha_zero_ai.get_move(game)
+        
+        if best_move is None:
+            return AIMovesResponse(
+                game_id=request.game_id,
+                move=None,
+                message="No legal moves available"
+            )
+        
+        print(f"[Alpha Zero AI] 選択完了: {best_move}")
+        
+        return AIMovesResponse(
+            game_id=request.game_id,
+            move=best_move.to_dict(),
+            message="Alpha Zero AI (強化学習モデル)"
+        )
+    
+    except Exception as e:
+        print(f"[Alpha Zero AI] エラー: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Alpha Zero AI error: {str(e)}")
 
 
 @app.post("/api/game/{game_id}/reset")
