@@ -137,7 +137,7 @@ const response = await apiClient.getAIMove(gameId, -1, 'hard');
 ### Python
 
 ```python
-from ai.mcts import create_mcts_engine
+from mcts.mcts import create_mcts_engine
 
 # Pure MCTS（簡単）
 mcts = create_mcts_engine(

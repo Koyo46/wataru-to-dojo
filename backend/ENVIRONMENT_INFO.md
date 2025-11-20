@@ -225,7 +225,7 @@ python test_mcts.py --games 10 --size 9
 ## 📚 参考ドキュメント
 
 - **バックエンドAPI:** http://localhost:8000/docs（起動後アクセス可能）
-- **MCTS詳細:** `backend/ai/README.md`
+- **MCTS詳細:** `backend/mcts/README.md`
 - **AI難易度比較:** `backend/AI_MODES_README.md`
 - **最適化ノート:** `backend/OPTIMIZATION_NOTES.md`
 

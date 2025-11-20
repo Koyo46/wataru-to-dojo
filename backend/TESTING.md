@@ -7,9 +7,12 @@
 1. [クイックスタート](#クイックスタート)
 2. [基本的なゲームロジックのテスト](#基本的なゲームロジックのテスト)
 3. [AI（MCTS）のテスト](#aimctsのテスト)
-4. [パフォーマンステスト](#パフォーマンステスト)
-5. [APIサーバーのテスト](#apiサーバーのテスト)
-6. [トラブルシューティング](#トラブルシューティング)
+4. [MCTS vs Alpha Zero 対戦テスト](#mcts-vs-alpha-zero-対戦テスト)
+5. [パフォーマンステスト](#パフォーマンステスト)
+6. [APIサーバーのテスト](#apiサーバーのテスト)
+7. [プレイアウト視覚化テスト](#プレイアウト視覚化テスト)
+8. [テストシナリオ別ガイド](#テストシナリオ別ガイド)
+9. [トラブルシューティング](#トラブルシューティング)
 
 ---
 
@@ -30,8 +33,11 @@ pip install -r requirements.txt
 # 基本テスト
 python test_game.py
 
-# AI性能テスト（短時間）
+# AI性能テスト（MCTS vs ランダム）
 python test_mcts.py --quick
+
+# MCTS vs Alpha Zero対戦テスト（学習済みモデル必須）
+python test_mcts_vs_alphazero.py --quick
 
 # パフォーマンステスト
 python test_performance.py
@@ -74,7 +80,7 @@ python test_game.py
 
 ### test_mcts.py
 
-**目的**: MCTS AIの性能と動作を評価
+**目的**: MCTS AIの性能と動作を評価（vs ランダムAI）
 
 #### オプション一覧
 
@@ -170,6 +176,183 @@ MCTS後手（ピンク）: 4/5 (80.0%)
 
 平均手数: 21.3手
 ============================================================
+```
+
+---
+
+## MCTS vs Alpha Zero 対戦テスト
+
+### test_mcts_vs_alphazero.py
+
+**目的**: MCTS AIとAlpha Zero AIを戦わせて性能を比較
+
+**前提条件**: Alpha Zeroモデルが学習済みであること（`alpha_zero/models/best.pth.tar`）
+
+#### オプション一覧
+
+| オプション | 説明 | デフォルト |
+|-----------|------|-----------|
+| `--quick` | 1ゲームのクイックテスト | - |
+| `--games N` | N回のゲームを実行 | 10 |
+| `--mcts-time T` | MCTS思考時間（秒） | 5.0 |
+| `--az-sims N` | Alpha Zeroシミュレーション回数 | 50 |
+| `--size N` | 盤面サイズ | 9 |
+| `--show-board` | 一手ごとに盤面を表示 | False |
+| `--az-first` | Alpha Zeroを先手にする | False |
+
+#### 実行例
+
+**1. クイックテスト（1ゲーム）**
+```bash
+python test_mcts_vs_alphazero.py --quick
+```
+最速でMCTS vs Alpha Zeroの対戦を確認できます。
+
+**2. 標準評価（10ゲーム、先手後手交互）**
+```bash
+python test_mcts_vs_alphazero.py --games 10
+```
+MCTS vs Alpha Zeroで10回対戦し、勝率を測定します。先手後手は自動的に交互に入れ替わります。
+
+**3. Alpha Zeroの性能を最大化**
+```bash
+python test_mcts_vs_alphazero.py --games 20 --az-sims 100
+```
+Alpha Zeroのシミュレーション回数を増やして、より強いAIとして対戦します。
+
+**4. MCTSの思考時間を延長**
+```bash
+python test_mcts_vs_alphazero.py --games 20 --mcts-time 10.0
+```
+MCTSの思考時間を延ばして、公平な対戦にします。
+
+**5. 盤面を視覚化しながらテスト**
+```bash
+python test_mcts_vs_alphazero.py --quick --show-board
+```
+一手ごとに盤面を表示します。どのように対戦が進むか確認できます。
+
+**6. Alpha Zeroを先手にする**
+```bash
+python test_mcts_vs_alphazero.py --quick --az-first
+```
+通常はMCTSが先手（水色）ですが、Alpha Zeroを先手にします。
+
+#### 期待される出力
+
+**クイックテスト**:
+```
+============================================================
+MCTS vs Alpha Zero クイックテスト
+盤面: 9x9
+先手: MCTS
+============================================================
+
+Alpha Zero AI読み込み成功
+ニューラルネットワーク作成完了
+  デバイス: CUDA
+  チャンネル数: 64
+  残差ブロック数: 4
+  総パラメータ数: 1,729,069
+OK: Alpha Zero AIプレイヤー作成完了
+   MCTSシミュレーション回数: 25
+   盤面サイズ: 9x9
+
+============================================================
+対戦開始: MCTS🔵 vs AlphaZero🔴
+MCTS思考時間: 3.0秒
+Alpha Zeroシミュレーション: 25回
+============================================================
+
+ターン 1: MCTS🔵 思考中... 完了
+  MCTS🔵 が選択: Move(水色, size=5, from=(0,0), to=(0,4), dir=horizontal)
+ターン 2: AlphaZero🔴 思考中... 完了
+  AlphaZero🔴 が選択: Move(ピンク, size=4, from=(8,0), to=(8,3), dir=horizontal)
+...
+ターン 18: AlphaZero🔴 思考中... 完了
+  AlphaZero🔴 が選択: Move(ピンク, size=3, from=(4,4), to=(4,6), dir=horizontal)
+
+ゲーム終了: 18手
+勝者: AlphaZero🔴
+
+============================================================
+結果: Alpha Zero勝利！
+============================================================
+```
+
+**標準評価（10ゲーム）**:
+```
+============================================================
+MCTS vs Alpha Zero 評価
+============================================================
+盤面サイズ: 9x9
+対戦回数: 10
+MCTS思考時間: 5.0秒
+Alpha Zeroシミュレーション: 50回
+============================================================
+
+ゲーム 1/10
+  先手: MCTS (水色🔵), 後手: Alpha Zero (ピンク🔴)
+Alpha Zero AI読み込み成功
+ゲーム 1: Alpha Zero勝利！
+
+ゲーム 2/10
+  先手: Alpha Zero (水色🔵), 後手: MCTS (ピンク🔴)
+ゲーム 2: MCTS勝利！
+
+ゲーム 3/10
+  先手: MCTS (水色🔵), 後手: Alpha Zero (ピンク🔴)
+ゲーム 3: Alpha Zero勝利！
+
+...
+
+============================================================
+結果サマリー
+============================================================
+MCTS勝利: 3/10 (30.0%)
+Alpha Zero勝利: 7/10 (70.0%)
+引き分け: 0/10 (0.0%)
+============================================================
+```
+
+#### 使い分け
+
+| 目的 | コマンド |
+|------|---------|
+| 動作確認 | `python test_mcts_vs_alphazero.py --quick` |
+| 標準評価 | `python test_mcts_vs_alphazero.py --games 10` |
+| 詳細評価（学習後） | `python test_mcts_vs_alphazero.py --games 20 --az-sims 100` |
+| デバッグ | `python test_mcts_vs_alphazero.py --quick --show-board` |
+| 公平な対戦 | `python test_mcts_vs_alphazero.py --games 20 --mcts-time 10.0 --az-sims 100` |
+
+#### トラブルシューティング
+
+**エラー: Alpha Zero AI読み込み失敗**
+```
+ERROR: Alpha Zero AI読み込み失敗: モデルファイルが見つかりません
+```
+
+**解決策**:
+1. Alpha Zeroモデルが学習済みか確認:
+   ```bash
+   ls alpha_zero/models/best.pth.tar
+   ```
+2. モデルが存在しない場合は学習を実行:
+   ```bash
+   cd alpha_zero
+   python main.py
+   # プロトタイプモード（1）を選択
+   ```
+
+**エラー: CUDA out of memory**
+```
+RuntimeError: CUDA out of memory
+```
+
+**解決策**:
+Alpha Zeroのシミュレーション回数を減らす:
+```bash
+python test_mcts_vs_alphazero.py --az-sims 25
 ```
 
 ---
@@ -342,6 +525,22 @@ python test_mcts.py --size 18 --games 50 --time 5.0
 python test_mcts.py --size 18 --games 20 --time 15.0
 ```
 
+### 🧠 シナリオ5: Alpha Zero学習後
+
+```bash
+# 1. 動作確認（1ゲーム）
+python test_mcts_vs_alphazero.py --quick
+
+# 2. 標準評価（10ゲーム、先手後手交互）
+python test_mcts_vs_alphazero.py --games 10
+
+# 3. 詳細評価（Alpha Zeroの性能を最大化）
+python test_mcts_vs_alphazero.py --games 20 --az-sims 100 --mcts-time 10.0
+
+# 4. 盤面を見ながらデバッグ
+python test_mcts_vs_alphazero.py --quick --show-board
+```
+
 ---
 
 ## トラブルシューティング
@@ -407,6 +606,7 @@ python test_mcts.py --quick --show-board  # 盤面を表示して確認
 | **基本ロジック** | すべてのテストがパス |
 | **MCTS vs ランダム（9×9）** | 勝率 80% 以上 |
 | **MCTS vs ランダム（18×18）** | 勝率 70% 以上 |
+| **MCTS vs Alpha Zero（9×9）** | 勝率 30% 以上（Alpha Zeroは学習済みAI） |
 | **パフォーマンス（9×9）** | < 0.5ms/回 |
 | **パフォーマンス（18×18）** | < 2.0ms/回 |
 | **APIヘルスチェック** | 200 OK |
@@ -452,6 +652,14 @@ jobs:
         run: |
           cd backend
           python test_mcts.py --quick
+      - name: Run Alpha Zero tests (if model exists)
+        run: |
+          cd backend
+          if [ -f "alpha_zero/models/best.pth.tar" ]; then
+            python test_mcts_vs_alphazero.py --quick
+          else
+            echo "Alpha Zero model not found, skipping test"
+          fi
 ```
 
 ---
@@ -468,11 +676,13 @@ python test_game.py && python test_mcts.py --quick
 python test_game.py
 python test_performance.py
 python test_mcts.py --games 50 --time 5.0
+python test_mcts_vs_alphazero.py --games 20  # Alpha Zeroモデルがある場合
 ```
 
 ### 詳細デバッグ
 ```bash
 python test_mcts.py --quick --show-board
+python test_mcts_vs_alphazero.py --quick --show-board
 python test_playout_visualization.py
 ```
 

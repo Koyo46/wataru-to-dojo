@@ -88,7 +88,7 @@ def test_mcts_simulation_speed(board_size=9, time_limit=5.0):
     print(f"MCTSシミュレーション速度テスト: {board_size}x{board_size}盤面")
     print("=" * 60)
     
-    from ai.mcts import create_mcts_engine
+    from mcts.mcts import create_mcts_engine
     
     game = WataruToGame(board_size)
     mcts = create_mcts_engine(time_limit=time_limit, verbose=False)

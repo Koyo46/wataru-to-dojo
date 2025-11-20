@@ -4,7 +4,7 @@
 
 ## ✅ 実装完了内容
 
-### 1. MCTSエンジン (`backend/ai/mcts.py`)
+### 1. MCTSエンジン (`backend/mcts/mcts.py`)
 - UCB1アルゴリズムによる賢い探索
 - ランダムプレイアウトシミュレーション
 - 時間制限付き探索
@@ -20,7 +20,7 @@
 - 評価機能（複数ゲームの対戦）
 - コマンドライン引数対応
 
-### 4. ドキュメント (`backend/ai/README.md`)
+### 4. ドキュメント (`backend/mcts/README.md`)
 - 使い方ガイド
 - パラメータ説明
 - チューニング方法
@@ -187,7 +187,7 @@ mcts = create_mcts_engine(exploration_weight=2.0)
 
 ### MCTSが動かない
 - バックエンドが正しく起動しているか確認
-- `backend/ai/mcts.py`が存在するか確認
+- `backend/mcts/mcts.py`が存在するか確認
 - Python環境が正しいか確認（venv有効化）
 
 ### MCTSが遅すぎる
@@ -200,8 +200,8 @@ mcts = create_mcts_engine(exploration_weight=2.0)
 
 ## 📚 さらに学ぶには
 
-- `backend/ai/README.md` - 詳細なドキュメント
-- `backend/ai/mcts.py` - 実装の詳細
+- `backend/mcts/README.md` - 詳細なドキュメント
+- `backend/mcts/mcts.py` - 実装の詳細
 - `backend/test_mcts.py` - 使用例
 
 ---

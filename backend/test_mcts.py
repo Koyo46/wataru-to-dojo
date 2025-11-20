@@ -10,7 +10,7 @@ backend_path = Path(__file__).parent
 sys.path.insert(0, str(backend_path))
 
 from game.game import WataruToGame
-from ai.mcts import create_mcts_engine, visualize_board
+from mcts.mcts import create_mcts_engine, visualize_board
 import random
 
 
