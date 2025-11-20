@@ -21,7 +21,7 @@ sys.path.insert(0, str(backend_path))
 from game.game import WataruToGame
 from game.move import Move, Position
 from game.board import Board
-from ai.mcts import create_mcts_engine
+from mcts.mcts import create_mcts_engine
 
 # Alpha Zero AI (遅延インポート - 初回使用時にロード)
 _alpha_zero_player = None

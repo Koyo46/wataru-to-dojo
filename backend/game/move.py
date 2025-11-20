@@ -18,10 +18,11 @@ class Position:
     
     def to_dict(self) -> Dict:
         """辞書形式に変換"""
+        # numpy型をPython標準型に変換
         return {
-            "row": self.row,
-            "col": self.col,
-            "layer": self.layer
+            "row": int(self.row),
+            "col": int(self.col),
+            "layer": int(self.layer)
         }
     
     @classmethod
@@ -87,10 +88,11 @@ class Move:
     
     def to_dict(self) -> Dict:
         """辞書形式に変換"""
+        # numpy型をPython標準型に変換
         return {
-            "player": self.player,
+            "player": int(self.player),
             "path": [pos.to_dict() for pos in self.path],
-            "timestamp": self.timestamp
+            "timestamp": float(self.timestamp)
         }
     
     @classmethod
