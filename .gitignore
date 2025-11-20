@@ -83,6 +83,7 @@ htmlcov/
 
 # PyTorch
 *.pth.tar
+*.pth.tar.examples
 
 # Vercel
 .vercel
